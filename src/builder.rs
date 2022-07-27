@@ -90,9 +90,10 @@ impl MapBuilder {
     ///     .build();
     /// ```
     #[inline]
-    pub fn insert_vec<K, F>(self, key: K, mut f: F) -> MapBuilder
-    where K: Into<String>,
-          F: FnMut(VecBuilder) -> VecBuilder
+    pub fn insert_vec<K, F>(self, key: K, f: F) -> MapBuilder
+    where
+        K: Into<String>,
+        F: FnOnce(VecBuilder) -> VecBuilder,
     {
         let MapBuilder { mut data } = self;
         let builder = f(VecBuilder::new());
@@ -118,10 +119,10 @@ impl MapBuilder {
     ///     .build();
     /// ```
     #[inline]
-    pub fn insert_map<K, F>(self, key: K, mut f: F) -> MapBuilder
+    pub fn insert_map<K, F>(self, key: K, f: F) -> MapBuilder
     where
         K: Into<String>,
-        F: FnMut(MapBuilder) -> MapBuilder,
+        F: FnOnce(MapBuilder) -> MapBuilder,
     {
         let MapBuilder { mut data } = self;
         let builder = f(MapBuilder::new());
