@@ -6,7 +6,7 @@ use std::io::Write;
 use std::path::{PathBuf, Path};
 use std::collections::HashMap;
 
-use mustache::{self, Data, Error, to_data};
+use mustache::{self, DefaultLoader, PartialLoader, Data, Error, to_data};
 use mustache::{Context, Template};
 
 use serde::Serialize;
@@ -32,7 +32,7 @@ struct Person {
     age: Option<u32>,
 }
 
-fn compile_str(s: &str) -> Template {
+fn compile_str(s: &str) -> Template<DefaultLoader> {
     mustache::compile_str(s).expect(&format!("Failed to compile: {}", s))
 }
 
@@ -292,7 +292,7 @@ fn test_render_option_complex() {
                                                population of 7300000000");
 }
 
-fn render_data(template: &Template, data: &Data) -> String {
+fn render_data<P: PartialLoader>(template: &Template<P>, data: &Data) -> String {
     let mut bytes = vec![];
     template.render_data(&mut bytes, data).expect("Failed to render data");
     String::from_utf8(bytes).expect("Failed ot encode as String")
@@ -408,7 +408,7 @@ fn test_render_inverted_sections() {
     assert_eq!(render_data(&template, &Data::Map(ctx0)), "05".to_string());
 }
 
-fn assert_partials_data(template: Template) {
+fn assert_partials_data<P: PartialLoader>(template: Template<P>) {
     let ctx = HashMap::new();
     assert_eq!(render_data(&template, &Data::Map(ctx)),
                "<h2>Names</h2>\n".to_string());

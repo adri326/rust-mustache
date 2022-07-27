@@ -4,24 +4,24 @@ use std::io::Read;
 use std::fs::File;
 
 use parser::{Parser, Token};
-use super::Context;
+use super::{Context, PartialLoader};
 
 use Result;
 
 pub type PartialsMap = HashMap<String, Vec<Token>>;
 
 /// `Compiler` is a object that compiles a string into a `Vec<Token>`.
-pub struct Compiler<T> {
-    ctx: Context,
+pub struct Compiler<T, P: PartialLoader> {
+    ctx: Context<P>,
     reader: T,
     partials: PartialsMap,
     otag: String,
     ctag: String,
 }
 
-impl<T: Iterator<Item = char>> Compiler<T> {
+impl<T: Iterator<Item = char>, P: PartialLoader> Compiler<T, P> {
     /// Construct a default compiler.
-    pub fn new(ctx: Context, reader: T) -> Compiler<T> {
+    pub fn new(ctx: Context<P>, reader: T) -> Compiler<T, P> {
         Compiler {
             ctx: ctx,
             reader: reader,
@@ -32,12 +32,13 @@ impl<T: Iterator<Item = char>> Compiler<T> {
     }
 
     /// Construct a default compiler.
-    pub fn new_with(ctx: Context,
-                    reader: T,
-                    partials: PartialsMap,
-                    otag: String,
-                    ctag: String)
-                    -> Compiler<T> {
+    pub fn new_with(
+        ctx: Context<P>,
+        reader: T,
+        partials: PartialsMap,
+        otag: String,
+        ctag: String
+    ) -> Compiler<T, P> {
         Compiler {
             ctx: ctx,
             reader: reader,
@@ -56,38 +57,26 @@ impl<T: Iterator<Item = char>> Compiler<T> {
 
         // Compile the partials if we haven't done so already.
         for name in partials.into_iter() {
-            let path =
-                self.ctx.template_path.join(&(name.clone() + "." + &self.ctx.template_extension));
-
             if !self.partials.contains_key(&name) {
                 // Insert a placeholder so we don't recurse off to infinity.
                 self.partials.insert(name.to_string(), Vec::new());
 
-                match File::open(&path) {
-                    Ok(mut file) => {
-                        let mut string = String::new();
-                        file.read_to_string(&mut string)?;
+                let string = self.ctx.partial_loader.load(&name)?;
+                let compiler = Compiler {
+                    ctx: self.ctx.clone(),
+                    reader: string.chars(),
+                    partials: self.partials.clone(),
+                    otag: "{{".to_string(),
+                    ctag: "}}".to_string(),
+                };
 
-                        let compiler = Compiler {
-                            ctx: self.ctx.clone(),
-                            reader: string.chars(),
-                            partials: self.partials.clone(),
-                            otag: "{{".to_string(),
-                            ctag: "}}".to_string(),
-                        };
+                let (tokens, subpartials) = compiler.compile()?;
 
-                        let (tokens, subpartials) = compiler.compile()?;
+                // Include subpartials
+                self.partials.extend(subpartials.into_iter());
 
-                        // Include subpartials
-                        self.partials.extend(subpartials.into_iter());
-
-                        // Set final compiled tokens for *this* partial
-                        self.partials.insert(name, tokens);
-                    }
-                    // Ignore missing files.
-                    Err(ref e) if e.kind() == NotFound => {},
-                    Err(e) => return Err(e.into()),
-                }
+                // Set final compiled tokens for *this* partial
+                self.partials.insert(name, tokens);
             }
         }
 

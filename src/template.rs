@@ -9,19 +9,19 @@ use log::{log, error};
 use parser::Token;
 use serde::Serialize;
 
-use super::{Context, Data, Error, Result, to_data};
+use super::{Context, PartialLoader, Data, Error, Result, to_data};
 
 /// `Template` represents a compiled mustache file.
 #[derive(Debug, Clone)]
-pub struct Template {
-    ctx: Context,
+pub struct Template<P: PartialLoader> {
+    ctx: Context<P>,
     tokens: Vec<Token>,
     partials: HashMap<String, Vec<Token>>,
 }
 
 /// Construct a `Template`. This is not part of the impl of Template so it is
 /// not exported outside of mustache.
-pub fn new(ctx: Context, tokens: Vec<Token>, partials: HashMap<String, Vec<Token>>) -> Template {
+pub fn new<P: PartialLoader>(ctx: Context<P>, tokens: Vec<Token>, partials: HashMap<String, Vec<Token>>) -> Template<P> {
     Template {
         ctx: ctx,
         tokens: tokens,
@@ -29,7 +29,7 @@ pub fn new(ctx: Context, tokens: Vec<Token>, partials: HashMap<String, Vec<Token
     }
 }
 
-impl Template {
+impl<P: PartialLoader> Template<P> {
     /// Renders the template with the `Encodable` data.
     pub fn render<W, T>(&self, wr: &mut W, data: &T) -> Result<()>
     where W: Write,
@@ -62,14 +62,14 @@ impl Template {
     }
 }
 
-struct RenderContext<'a> {
-    template: &'a Template,
+struct RenderContext<'a, P: PartialLoader> {
+    template: &'a Template<P>,
     indent: String,
     line_start: bool,
 }
 
-impl<'a> RenderContext<'a> {
-    fn new(template: &'a Template) -> RenderContext<'a> {
+impl<'a, P: PartialLoader> RenderContext<'a, P> {
+    fn new(template: &'a Template<P>) -> RenderContext<'a, P> {
         RenderContext {
             template: template,
             indent: "".to_string(),

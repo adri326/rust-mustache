@@ -21,7 +21,7 @@ mod parser;
 mod template;
 
 pub use builder::{MapBuilder, VecBuilder};
-pub use context::Context;
+pub use context::{Context, PartialLoader, DefaultLoader};
 pub use data::Data;
 pub use encoder::Encoder;
 pub use encoder::Error as EncoderError;
@@ -38,13 +38,13 @@ where
 }
 
 /// Compiles a template from an `Iterator<char>`.
-pub fn compile_iter<T: Iterator<Item = char>>(iter: T) -> Result<Template> {
+pub fn compile_iter<T: Iterator<Item = char>>(iter: T) -> Result<Template<DefaultLoader>> {
     Context::new(PathBuf::from(".")).compile(iter)
 }
 
 /// Compiles a template from a path.
 /// returns None if the file cannot be read OR the file is not UTF-8 encoded
-pub fn compile_path<U: AsRef<Path>>(path: U) -> Result<Template> {
+pub fn compile_path<U: AsRef<Path>>(path: U) -> Result<Template<DefaultLoader>> {
     let path = path.as_ref();
 
     match path.file_name() {
@@ -54,10 +54,7 @@ pub fn compile_path<U: AsRef<Path>>(path: U) -> Result<Template> {
             // the extension is not utf8 :(
             let extension = path.extension().and_then(|ext| ext.to_str()).unwrap_or("mustache");
 
-            let context = Context {
-                template_path: template_dir.to_path_buf(),
-                template_extension: extension.to_string(),
-            };
+            let context = Context::with_extension(template_dir.to_path_buf(), extension.to_string());
             context.compile_path(filename)
         }
         None => Err(Error::NoFilename),
@@ -65,6 +62,6 @@ pub fn compile_path<U: AsRef<Path>>(path: U) -> Result<Template> {
 }
 
 /// Compiles a template from a string.
-pub fn compile_str(template: &str) -> Result<Template> {
+pub fn compile_str(template: &str) -> Result<Template<DefaultLoader>> {
     compile_iter(template.chars())
 }
